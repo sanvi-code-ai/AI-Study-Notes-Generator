@@ -34,6 +34,13 @@ const Header = ({ darkMode, setdarkMode }) => {
             Quiz
           </NavLink>
 
+          <NavLink
+          to="/saved-notes"
+          className={({ isActive }) =>isActive? "text-purple-600 font-semibold": "text-gray-600 dark:text-gray-300 hover:text-purple-600 transition-colors"}
+          >
+  Your Notes
+</NavLink>
+
     
 
           <NavLink 
