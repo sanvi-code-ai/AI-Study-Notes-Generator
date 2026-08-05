@@ -54,26 +54,46 @@ ${text}
 
 const generateQuiz = async (req, res) => {
   try {
-    const { text } = req.body;
+    const { notes } = req.body;
+    console.log("Notes received:", notes);
 
-    if (!text) {
+    if (!notes) {
       return res.status(400).json({
         message: "Text is required",
       });
     }
 
     const prompt = `
-Convert the following text into 15 multiple choice questions.
+Generate exactly 10 multiple-choice questions from the following study notes.
+
+Return ONLY a valid JSON array.
+
+Each question should be in this format:
+
+[
+  {
+    "question": "Question here",
+    "options": [
+      "Option 1",
+      "Option 2",
+      "Option 3",
+      "Option 4"
+    ],
+    "answer": "Correct Option"
+  }
+]
 
 Rules:
-- Create exactly 15 questions.
-- 4 options labelled as A, B, C, and D.
-- Give answer after every question.
-- Level of the question should be according to the information provided in the text.
-- Do not wrap the output in code blocks.
+- Generate exactly 10 questions.
+- Each question must have exactly 4 options.
+- Only one correct answer.
+- Do NOT return explanations.
+- Do NOT use markdown.
+- Do NOT use code blocks.
+- Return ONLY the JSON array.
 
-Text:
-${text}
+Study Notes:
+${notes}
 `;
 
     // Updated model to gemini-2.5-flash
@@ -82,9 +102,9 @@ ${text}
       contents: prompt,
     });
 
-    res.status(200).json({
-      quiz: response.text,
-    });
+    const quiz = JSON.parse(response.text);
+    res.status(200).json({quiz,
+});
 
   } catch (error) {
     console.error("Gemini Error:", error.message);

@@ -1,8 +1,12 @@
+import { useContext } from "react";
+import { QuizContext } from "../context/QuizContext";
 import React, { useState } from 'react';
 import { jsPDF } from "jspdf"; 
 import ReactMarkdown from "react-markdown";
 import {db} from "../firebase/firebase";
 import { collection , addDoc } from 'firebase/firestore';
+import { useNavigate } from "react-router-dom";
+
 
 const MainContent = () => {
   const [inputText, setInputText] = useState('');
@@ -10,6 +14,8 @@ const MainContent = () => {
   const [loading, setLoading] = useState(false); 
   const [copied, setCopied] = useState(false);
   const [selectedPDF, setSelectedPDF] = useState(null);
+  const navigate = useNavigate();
+ const { setGeneratedNotes, setQuizQuestions } = useContext(QuizContext);
 
   const wordCount = inputText.trim() === '' ? 0 : inputText.trim().split(/\s+/).length;
   const charCount = inputText.length;
@@ -37,6 +43,7 @@ const MainContent = () => {
 
       if (response.ok) {
         setOutputText(data.studyNotes);
+        setGeneratedNotes(data.studyNotes);
       } else {
         alert(data.message || "Failed to generate notes");
       }
@@ -73,6 +80,7 @@ const handlePDFUpload = async () => {
 
     if (response.ok) {
       setOutputText(data.studyNotes);
+      setGeneratedNotes(data.studyNotes);
     } else {
       alert(data.message || "Failed to generate notes from PDF");
     }
@@ -81,6 +89,36 @@ const handlePDFUpload = async () => {
     alert("Something went wrong while uploading the PDF");
   } finally {
     setLoading(false);
+  }
+};
+
+const handleTakeQuiz = async () => {
+  if (!outputText) {
+    alert("Please generate study notes first!");
+    return;
+  }
+
+  try {
+    const response = await fetch("http://localhost:5000/api/notes/quiz", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        notes: outputText,
+      }),
+    });
+
+    const data = await response.json();
+    setQuizQuestions(data.quiz);
+    navigate("/quiz");
+
+    
+
+    navigate("/quiz");
+  } catch (error) {
+    console.error(error);
+    alert("Failed to generate quiz.");
   }
 };
 
@@ -208,6 +246,13 @@ const handlePDFUpload = async () => {
                 ? "bg-emerald-400 cursor-not-allowed": "bg-emerald-600 hover:bg-emerald-700 active:scale-95"}`}>
                   {loading ? "Uploading..." : "Generate Notes from PDF"}
                 </button>
+
+                <button
+                onClick={handleTakeQuiz}
+                className="mt-3 w-full py-2.5 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all">
+                Take Quiz
+                </button>
+
             </div>
           </div>
 
@@ -235,6 +280,7 @@ const handlePDFUpload = async () => {
                     onClick={handleSaveNotes}
                     className="text-xs bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-3 py-1 rounded hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors"
                   >Save Notes</button>
+
                   
                 </div>
               )}
