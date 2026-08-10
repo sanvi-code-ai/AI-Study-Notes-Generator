@@ -8,6 +8,7 @@ import MiddleQuiz from './Quiz/MiddleQuiz';
 import About from './components/About';
 import SavedNotes from './components/Savednotes';
 import SavedNoteDetails from "./components/SavedNoteDetails";
+import Dashboard from "./dashboard/Dashboard";
 
 
 const App = () => {
@@ -71,6 +72,16 @@ const App = () => {
         <Route
         path="/notes/:id"
         element={<SavedNoteDetails />}
+        />
+
+        <Route 
+          path="/dashboard" 
+          element={
+            <main>
+              
+              <Dashboard darkMode={darkMode} setdarkMode={setdarkMode} />
+            </main>
+          } 
         />
 
       </Routes>

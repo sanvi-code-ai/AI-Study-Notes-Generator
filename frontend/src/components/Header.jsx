@@ -12,6 +12,12 @@ const Header = ({ darkMode, setdarkMode }) => {
         </h1>
 
         <nav className="flex gap-8 font-medium">
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) => isActive ? "text-purple-600 font-semibold" : "text-gray-600 dark:text-gray-300 hover:text-purple-600 transition-colors"}
+            >Dashboard
+          </NavLink>
+          
           <NavLink 
             to="/" 
             className={({ isActive }) => 
@@ -53,6 +59,7 @@ const Header = ({ darkMode, setdarkMode }) => {
           >
             About
           </NavLink>
+        
         </nav>
 
         <SetTheme darkMode={darkMode} setdarkMode={setdarkMode} />

@@ -1,5 +1,7 @@
 import { useContext, useState } from "react";
 import { QuizContext } from "../context/QuizContext";
+import { db } from "../firebase/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 
 const MiddleQuiz = () => {
@@ -55,6 +57,20 @@ if (quizFinished) {
     </div>
   );
 }
+
+const saveQuizResult = async () => {
+  try {
+    await addDoc(collection(db, "quizResults"), {
+      score,
+      totalQuestions: quizQuestions.length,
+      percentage: Math.round((score / quizQuestions.length) * 100),
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error(error);
+  }
+};
+
   return (
     <div className="max-w-4xl mx-auto p-8">
 
@@ -100,14 +116,15 @@ if (quizFinished) {
 
   <button
     disabled={!selectedAnswer}
-    onClick={() => {
+    onClick={async () => {
   setSelectedAnswer("");
 
   if (currentQuestion < quizQuestions.length - 1) {
     setCurrentQuestion((prev) => prev + 1);
   } else {
-    setCurrentQuestion(quizQuestions.length);
-  }
+  await saveQuizResult();
+  setCurrentQuestion(quizQuestions.length);
+}
 }}
     className={`px-6 py-2 rounded-lg text-white ${
       selectedAnswer
