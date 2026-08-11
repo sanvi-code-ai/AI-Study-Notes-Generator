@@ -114,9 +114,91 @@ ${notes}
   }
 };
 
+const generateStudyPlan = async (req, res) => {
+  try {
+    const { score, totalQuestions, incorrectQuestions } = req.body;
+
+    if (
+      score === undefined ||
+      !totalQuestions ||
+      !incorrectQuestions
+    ) {
+      return res.status(400).json({
+        message: "Quiz performance data is required",
+      });
+    }
+
+    const percentage = Math.round(
+      (score / totalQuestions) * 100
+    );
+
+    const prompt = `
+You are an expert academic tutor.
+
+Analyze the student's quiz performance and create a personalized study plan.
+
+Quiz Performance:
+- Score: ${score}/${totalQuestions}
+- Percentage: ${percentage}%
+
+Incorrect Questions:
+${incorrectQuestions.map((q, index) => `${index + 1}. ${q}`).join("\n")}
+
+Create a practical study plan based on the student's weak areas.
+
+Return ONLY valid JSON in this format:
+
+{
+  "performance": "Short assessment of the student's performance",
+  "weakAreas": [
+    "Weak topic 1",
+    "Weak topic 2"
+  ],
+  "studyPlan": [
+    {
+      "day": "Day 1",
+      "focus": "Topic to study",
+      "tasks": [
+        "Task 1",
+        "Task 2"
+      ]
+    }
+  ],
+  "recommendation": "Short personalized recommendation"
+}
+
+Rules:
+- Create a plan for 5 days.
+- Focus primarily on concepts related to incorrect questions.
+- Keep tasks realistic for a student.
+- Do not invent information unrelated to the quiz.
+- Return ONLY JSON.
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-flash-latest",
+      contents: prompt,
+    });
+
+    const studyPlan = JSON.parse(response.text);
+
+    res.status(200).json({
+      studyPlan,
+    });
+
+  } catch (error) {
+    console.error("Study Plan Error:", error.message);
+
+    res.status(500).json({
+      message: "Failed to generate study plan",
+    });
+  }
+};
+
 module.exports = {
   generateStudyNotes,
   generateQuiz,
+  generateStudyPlan,
 };
 
 

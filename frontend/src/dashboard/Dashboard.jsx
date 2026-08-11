@@ -15,7 +15,33 @@ const Dashboard = () => {
   const [averageScore, setAverageScore] = useState(0);
   const [bestScore, setBestScore] = useState(0);
   const [recentNotes, setRecentNotes] = useState([]);
+  const [studyPlan, setStudyPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [latestQuiz, setLatestQuiz] = useState(null);
   const navigate = useNavigate();
+
+
+
+
+  const fetchLatestQuiz = async () => {
+  try {
+    const quizQuery = query(
+      collection(db, "quizResults"),
+      orderBy("createdAt", "desc"),
+      limit(1)
+    );
+
+    const snapshot = await getDocs(quizQuery);
+
+    if (!snapshot.empty) {
+      const quizData = snapshot.docs[0].data();
+      setLatestQuiz(quizData);
+    }
+
+  } catch (error) {
+    console.error("Error fetching latest quiz:", error);
+  }
+};
 
   const fetchQuizResults = async () => {
     try {
@@ -67,6 +93,47 @@ const Dashboard = () => {
     }
   };
 
+  const generateStudyPlan = async () => {
+  try {
+    setPlanLoading(true);
+
+    // Make sure a quiz has been attempted
+    if (!latestQuiz) {
+      alert("Please complete a quiz first.");
+      return;
+    }
+
+    const response = await fetch(
+      "http://localhost:5000/api/notes/study-plan",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          score: latestQuiz.score,
+          totalQuestions: latestQuiz.totalQuestions,
+          incorrectQuestions: latestQuiz.incorrectQuestions || [],
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || "Failed to generate study plan");
+      return;
+    }
+
+    setStudyPlan(data.studyPlan);
+
+  } catch (error) {
+    console.error("Error generating study plan:", error);
+    alert("Something went wrong while generating your study plan.");
+  } finally {
+    setPlanLoading(false);
+  }
+};
   useEffect(() => {
     const fetchNotes = async () => {
       try {
@@ -80,12 +147,13 @@ const Dashboard = () => {
     fetchNotes();
     fetchQuizResults();
     fetchRecentNotes();
+    fetchLatestQuiz();
   }, []);
 
   return (
     <div className="max-w-7xl mx-auto p-8 w-full">
 
-      {/* Dashboard Header */}
+      
       <h1 className="text-4xl font-bold text-purple-600 mb-2">
         Learning Dashboard
       </h1>
@@ -138,6 +206,75 @@ const Dashboard = () => {
         </div>
 
       </div>
+
+      <div className="mt-10">
+  <button
+    onClick={generateStudyPlan}
+    disabled={planLoading}
+    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold"
+  >
+    {planLoading
+      ? "Creating Your Study Plan..."
+      : "🎯 Generate My Study Plan"}
+  </button>
+</div>
+{studyPlan && (
+  <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+
+    <h2 className="text-2xl font-bold text-purple-600 mb-4">
+      🎯 Your Personalized Study Plan
+    </h2>
+
+    <p className="text-gray-600 dark:text-gray-300 mb-6">
+      {studyPlan.performance}
+    </p>
+
+    <h3 className="text-xl font-semibold mb-3">
+      Weak Areas
+    </h3>
+
+    <ul className="list-disc ml-6 mb-6">
+      {studyPlan.weakAreas.map((area, index) => (
+        <li key={index}>
+          {area}
+        </li>
+      ))}
+    </ul>
+
+    <h3 className="text-xl font-semibold mb-4">
+      5-Day Study Plan
+    </h3>
+
+    <div className="space-y-4">
+      {studyPlan.studyPlan.map((day, index) => (
+        <div
+          key={index}
+          className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+        >
+          <h4 className="font-bold text-purple-600">
+            {day.day} — {day.focus}
+          </h4>
+
+          <ul className="list-disc ml-6 mt-2">
+            {day.tasks.map((task, taskIndex) => (
+              <li key={taskIndex}>
+                {task}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+
+    <div className="mt-6 p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+      <strong>AI Recommendation:</strong>
+      <p className="mt-1">
+        {studyPlan.recommendation}
+      </p>
+    </div>
+
+  </div>
+)}
 
   
       <div className="mt-10 w-full">
