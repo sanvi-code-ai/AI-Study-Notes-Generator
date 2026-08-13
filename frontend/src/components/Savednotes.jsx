@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { db } from "../firebase/firebase";
 import { collection, getDocs , deleteDoc , doc, } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { auth } from "../firebase/firebase";
+import { query, where } from "firebase/firestore";
 
 const SavedNotes = () => {
 
@@ -11,18 +13,25 @@ const SavedNotes = () => {
     const navigate = useNavigate();
 
     const fetchNotes = async () => {
-        try {
-            const querySnapshot = await getDocs(collection(db, "notes"));
-            const notesArray = querySnapshot.docs.map((doc) => ({
-                id: doc.id,...doc.data(),}));
-        
-                setNotes(notesArray);} 
-        catch (error) {
-            console.error(error);
-        } 
-        finally {
-            setLoading(false);
-        }
+  try {
+    const notesQuery = query(
+      collection(db, "notes"),
+      where("userId", "==", auth.currentUser.uid)
+    );
+
+    const querySnapshot = await getDocs(notesQuery);
+
+    const notesArray = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setNotes(notesArray);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
 };
 
 const handleDelete = async (id) => {

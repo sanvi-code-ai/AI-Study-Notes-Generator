@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import {db} from "../firebase/firebase";
 import { collection , addDoc } from 'firebase/firestore';
 import { useNavigate } from "react-router-dom";
+import { auth } from "../firebase/firebase";
 
 
 const MainContent = () => {
@@ -159,6 +160,7 @@ const handleTakeQuiz = async () => {
       inputText: inputText,
       generatedNotes: outputText,
       createdAt: new Date(),
+      userId: auth.currentUser.uid,
     });
 
     alert("Notes saved successfully!");

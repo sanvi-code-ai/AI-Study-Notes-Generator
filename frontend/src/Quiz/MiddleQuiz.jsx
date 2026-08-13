@@ -2,6 +2,7 @@ import { useContext, useState } from "react";
 import { QuizContext } from "../context/QuizContext";
 import { db } from "../firebase/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { auth } from "../firebase/firebase";
 
 const MiddleQuiz = () => {
   const { quizQuestions } = useContext(QuizContext);
@@ -48,6 +49,7 @@ const MiddleQuiz = () => {
   ),
   incorrectQuestions,
   createdAt: serverTimestamp(),
+  userId: auth.currentUser.uid,
 });
 
       console.log("Quiz result saved successfully!");
