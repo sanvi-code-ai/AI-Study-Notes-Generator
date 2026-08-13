@@ -1,5 +1,7 @@
 #  AI Study Notes Generator
 
+**Live Demo:** https://ai-study-notes-generator-six.vercel.app
+
 An AI-powered study assistant that converts study material into structured notes, generates interactive quizzes, tracks learning performance, and creates personalized study plans based on quiz performance.
 
 ---
