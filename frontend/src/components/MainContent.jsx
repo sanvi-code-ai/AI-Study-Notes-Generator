@@ -34,7 +34,7 @@ const MainContent = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/notes/generate", {
+      const response = await fetch("https://ai-study-notes-generator-ycb3.onrender.com/api/notes/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: inputText }),
@@ -72,7 +72,7 @@ const handlePDFUpload = async () => {
     const formData = new FormData();
     formData.append("pdf", selectedPDF);
 
-    const response = await fetch("http://localhost:5000/api/upload", {
+    const response = await fetch("https://ai-study-notes-generator-ycb3.onrender.com/api/upload", {
       method: "POST",
       body: formData,
     });
@@ -100,7 +100,7 @@ const handleTakeQuiz = async () => {
   }
 
   try {
-    const response = await fetch("http://localhost:5000/api/notes/quiz", {
+    const response = await fetch("https://ai-study-notes-generator-ycb3.onrender.com/api/notes/quiz", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

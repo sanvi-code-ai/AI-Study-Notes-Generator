@@ -168,7 +168,7 @@ const Dashboard = () => {
       setPlanLoading(true);
 
       const response = await fetch(
-        "http://localhost:5000/api/notes/study-plan",
+        "https://ai-study-notes-generator-ycb3.onrender.com/api/notes/study-plan",
         {
           method: "POST",
           headers: {
