@@ -1,3 +1,5 @@
+🔗 **Live Demo:** https://ai-study-notes-generator-six.vercel.app
+
 An AI-powered web application that converts raw text and PDF documents into well-structured study notes using Google Gemini AI. It helps students quickly generate concise notes, save them for future use, and export them as PDF.
 
 ---
