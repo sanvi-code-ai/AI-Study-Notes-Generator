@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const uploadRoutes = require("./routes/uploadRoutes");
 
-console.log(process.env.GEMINI_API_KEY);
+
 
 const notesRoutes = require("./routes/notesRoutes");
 
@@ -17,6 +17,8 @@ app.use(express.json());
 app.use("/api/notes", notesRoutes);
 app.use("/api/upload", uploadRoutes);
 
-app.listen(5000, () => {
-    console.log('Server running on port 5000');
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
