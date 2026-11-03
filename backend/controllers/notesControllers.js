@@ -1,11 +1,11 @@
+
 const { GoogleGenAI } = require("@google/genai");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-// Helper function to retry Gemini requests when the service temporarily returns 503
-
+// Generate content with retry handling
 const generateWithRetry = async (prompt) => {
   const maxAttempts = 4;
 
@@ -16,28 +16,35 @@ const generateWithRetry = async (prompt) => {
         contents: prompt,
       });
 
+      if (!response.text) {
+        throw new Error("Gemini returned an empty response");
+      }
+
       return response;
 
     } catch (error) {
-      console.error(
-        `Gemini attempt ${attempt} failed:`,
-        error.message
-      );
-
       const status = Number(error.status ?? error.code);
+
+      console.error(`Gemini attempt ${attempt} failed:`, {
+        message: error.message,
+        status,
+      });
 
       const retryable =
         status === 429 ||
         status >= 500 ||
-        /UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(error.message);
+        /UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(error.message || "");
 
       if (!retryable || attempt === maxAttempts) {
         throw error;
       }
 
-      const delay = 2000 * Math.pow(2, attempt - 1);
+      const delay = Math.min(
+        1500 * Math.pow(2, attempt - 1),
+        6000
+      );
 
-      console.log(`Retrying in ${delay / 1000} seconds...`);
+      console.log(`Retrying Gemini in ${delay / 1000} seconds...`);
 
       await new Promise(resolve =>
         setTimeout(resolve, delay)
@@ -46,31 +53,65 @@ const generateWithRetry = async (prompt) => {
   }
 };
 
+// Safely parse JSON returned by Gemini
+const parseGeminiJSON = (responseText) => {
+  const cleaned = responseText
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
 
+  return JSON.parse(cleaned);
+};
+
+// Handle API errors
+const handleError = (res, error, feature) => {
+  console.error(`${feature} Error:`, error.message);
+
+  const status = Number(error.status ?? error.code);
+
+  if (status === 429) {
+    return res.status(429).json({
+      message: "AI request limit reached. Please try again later.",
+    });
+  }
+
+  if (status === 503 || status >= 500) {
+    return res.status(503).json({
+      message: "AI service is temporarily unavailable. Please try again shortly.",
+    });
+  }
+
+  return res.status(500).json({
+    message: `Failed to generate ${feature.toLowerCase()}. Please try again.`,
+  });
+};
+
+// Generate Study Notes
 const generateStudyNotes = async (req, res) => {
   try {
     const { text } = req.body;
 
-    if (!text) {
+    if (!text || typeof text !== "string" || !text.trim()) {
       return res.status(400).json({
-        message: "Text is required",
+        message: "Valid text is required.",
       });
     }
 
     const prompt = `
-You are an expert academic tutor. Convert the following text into clean, highly readable, structured Markdown study notes.
+You are an expert academic tutor. Convert the following text into clear, structured Markdown study notes.
 
-Format and Structure Rules:
-1. Title: Start with a single "# " main header summarizing the topic.
-2. Overview: Provide a 2-3 sentence high-level summary at the top using a blockquote (> ).
-3. Core Concepts: Use "## " subheadings to divide the material into distinct logical sections.
-4. Key Terms & Definitions: Use bold text (**Term**) followed by clear explanations.
-5. Formatting Rules:
-   - Use "-" for bullet points (NOT "*").
-   - Highlight vital key terms, formulas, or names using **bold text**.
-   - Do NOT use LaTeX formulas or symbols like $V$, $CO_2$, etc. Write CO2, H2O, O2, speed = distance / time directly as plain text.
-   - End with a "## Key Takeaways" summary section.
-   - Do not wrap the response in markdown code fences.
+Formatting rules:
+1. Start with one descriptive H1 title.
+2. Add a 2-3 sentence overview using a blockquote.
+3. Organize concepts using H2 headings.
+4. Explain key terms using bold text.
+5. Use "-" for bullet points.
+6. Highlight important terms, formulas and names in bold.
+7. Write formulas in plain text, not LaTeX.
+8. Do not omit important information.
+9. End with a "## Key Takeaways" section.
+10. Do not use Markdown code fences.
 
 Text:
 ${text}
@@ -78,28 +119,23 @@ ${text}
 
     const response = await generateWithRetry(prompt);
 
-    res.status(200).json({
+    return res.status(200).json({
       studyNotes: response.text,
     });
 
   } catch (error) {
-    console.error("Gemini Error:", error.message);
-
-    res.status(500).json({
-      message: "Failed to generate study notes",
-    });
+    return handleError(res, error, "Study Notes");
   }
 };
 
+// Generate Quiz
 const generateQuiz = async (req, res) => {
   try {
     const { notes } = req.body;
 
-    console.log("Notes received:", notes);
-
-    if (!notes) {
+    if (!notes || typeof notes !== "string" || !notes.trim()) {
       return res.status(400).json({
-        message: "Text is required",
+        message: "Valid study notes are required.",
       });
     }
 
@@ -108,8 +144,7 @@ Generate exactly 10 multiple-choice questions from the following study notes.
 
 Return ONLY a valid JSON array.
 
-Each question should be in this format:
-
+Format:
 [
   {
     "question": "Question here",
@@ -124,13 +159,12 @@ Each question should be in this format:
 ]
 
 Rules:
-- Generate exactly 10 questions.
-- Each question must have exactly 4 options.
+- Exactly 10 questions.
+- Exactly 4 options per question.
 - Only one correct answer.
-- Do NOT return explanations.
-- Do NOT use markdown.
-- Do NOT use code blocks.
-- Return ONLY the JSON array.
+- No explanations.
+- No Markdown or code fences.
+- Return ONLY JSON.
 
 Study Notes:
 ${notes}
@@ -138,21 +172,31 @@ ${notes}
 
     const response = await generateWithRetry(prompt);
 
-    const quiz = JSON.parse(response.text);
+    const quiz = parseGeminiJSON(response.text);
 
-    res.status(200).json({
+    if (
+      !Array.isArray(quiz) ||
+      quiz.length !== 10 ||
+      quiz.some(q =>
+        !q.question ||
+        !Array.isArray(q.options) ||
+        q.options.length !== 4 ||
+        !q.options.includes(q.answer)
+      )
+    ) {
+      throw new Error("Gemini returned an invalid quiz format.");
+    }
+
+    return res.status(200).json({
       quiz,
     });
 
   } catch (error) {
-    console.error("Gemini Error:", error.message);
-
-    res.status(500).json({
-      message: "Failed to generate quiz",
-    });
+    return handleError(res, error, "Quiz");
   }
 };
 
+// Generate Personalized Study Plan
 const generateStudyPlan = async (req, res) => {
   try {
     const {
@@ -163,38 +207,44 @@ const generateStudyPlan = async (req, res) => {
 
     if (
       score === undefined ||
-      !totalQuestions ||
-      !incorrectQuestions
+      !Number.isFinite(Number(score)) ||
+      !Number.isFinite(Number(totalQuestions)) ||
+      Number(totalQuestions) <= 0 ||
+      Number(score) < 0 ||
+      Number(score) > Number(totalQuestions) ||
+      !Array.isArray(incorrectQuestions)
     ) {
       return res.status(400).json({
-        message: "Quiz performance data is required",
+        message: "Valid quiz performance data is required.",
       });
     }
 
     const percentage = Math.round(
-      (score / totalQuestions) * 100
+      (Number(score) / Number(totalQuestions)) * 100
     );
+
+    const incorrectList = incorrectQuestions
+      .map((q, index) => `${index + 1}. ${q}`)
+      .join("\n");
 
     const prompt = `
 You are an expert academic tutor.
 
-Analyze the student's quiz performance and create a personalized study plan.
+Analyze the student's quiz performance and create a personalized 5-day study plan.
 
 Quiz Performance:
 - Score: ${score}/${totalQuestions}
 - Percentage: ${percentage}%
 
 Incorrect Questions:
-${incorrectQuestions
-  .map((q, index) => `${index + 1}. ${q}`)
-  .join("\n")}
+${incorrectList || "No incorrect questions."}
 
 Create a practical study plan based on the student's weak areas.
 
 Return ONLY valid JSON in this format:
 
 {
-  "performance": "Short assessment of the student's performance",
+  "performance": "Short assessment",
   "weakAreas": [
     "Weak topic 1",
     "Weak topic 2"
@@ -214,26 +264,32 @@ Return ONLY valid JSON in this format:
 
 Rules:
 - Create a plan for 5 days.
-- Focus primarily on concepts related to incorrect questions.
-- Keep tasks realistic for a student.
-- Do not invent information unrelated to the quiz.
+- Focus on concepts related to incorrect questions.
+- Keep tasks realistic.
+- Do not invent unrelated information.
 - Return ONLY JSON.
 `;
 
     const response = await generateWithRetry(prompt);
 
-    const studyPlan = JSON.parse(response.text);
+    const studyPlan = parseGeminiJSON(response.text);
 
-    res.status(200).json({
+    if (
+      !studyPlan.performance ||
+      !Array.isArray(studyPlan.weakAreas) ||
+      !Array.isArray(studyPlan.studyPlan) ||
+      studyPlan.studyPlan.length !== 5 ||
+      !studyPlan.recommendation
+    ) {
+      throw new Error("Gemini returned an invalid study plan format.");
+    }
+
+    return res.status(200).json({
       studyPlan,
     });
 
   } catch (error) {
-    console.error("Study Plan Error:", error.message);
-
-    res.status(500).json({
-      message: "Failed to generate study plan",
-    });
+    return handleError(res, error, "Study Plan");
   }
 };
 
