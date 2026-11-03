@@ -7,7 +7,7 @@ import { db, auth } from "../firebase/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
-const BACKEND_URL = "http://localhost:5000";
+const BACKEND_URL = "https://ai-study-notes-generator-ycb3.onrender.com";
 
 const MainContent = () => {
   const [inputText, setInputText] = useState("");
